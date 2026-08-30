@@ -77,68 +77,310 @@ def meal_timing_tool(
 
 def swim_workout_tool(
     duration_minutes: int,
-    intensity: str
+    intensity: str,
+    level: str = "beginner",
+    goal: str = "aerobic",
+    stroke: str = "freestyle",
+    pool_length: int = 25,
 ):
+    """
+    Create a structured swimming workout.
+
+    The workout adapts to:
+    - swimming level
+    - training goal
+    - intensity
+    - preferred stroke
+    - pool length
+    """
+
+    # =====================================================
+    # VALIDATE INPUTS
+    # =====================================================
 
     duration_minutes = max(
         15,
-        min(duration_minutes, 120)
+        min(int(duration_minutes), 120),
     )
+
+    intensity = intensity.lower()
+    level = level.lower()
+    goal = goal.lower()
+    stroke = stroke.lower()
+
+    if intensity not in [
+        "easy",
+        "moderate",
+        "hard",
+    ]:
+        intensity = "moderate"
+
+    if level not in [
+        "beginner",
+        "intermediate",
+        "advanced",
+    ]:
+        level = "beginner"
+
+    if goal not in [
+        "aerobic",
+        "endurance",
+        "recovery",
+        "speed",
+    ]:
+        goal = "aerobic"
+
+    if stroke not in [
+        "freestyle",
+        "breaststroke",
+        "backstroke",
+        "mixed",
+    ]:
+        stroke = "freestyle"
+
+    if pool_length not in [
+        25,
+        50,
+    ]:
+        pool_length = 25
+
+
+    # =====================================================
+    # ESTIMATE DISTANCE
+    # =====================================================
+
+    # Approximate sustainable meters per minute.
+    # These are planning values, not performance standards.
+
+    pace_map = {
+        "beginner": {
+            "easy": 18,
+            "moderate": 22,
+            "hard": 25,
+        },
+
+        "intermediate": {
+            "easy": 25,
+            "moderate": 30,
+            "hard": 35,
+        },
+
+        "advanced": {
+            "easy": 32,
+            "moderate": 38,
+            "hard": 45,
+        },
+    }
+
+    meters_per_minute = (
+        pace_map[level][intensity]
+    )
+
+    estimated_distance = (
+        duration_minutes
+        * meters_per_minute
+    )
+
+    # Round down to full pool lengths.
+
+    estimated_distance = (
+        estimated_distance
+        // pool_length
+        * pool_length
+    )
+
+
+    # =====================================================
+    # WORKOUT ALLOCATION
+    # =====================================================
 
     if duration_minutes <= 30:
 
-        warmup = 5
-        cooldown = 5
-
-    elif duration_minutes <= 60:
-
-        warmup = 10
-        cooldown = 5
+        warmup_ratio = 0.20
+        cooldown_ratio = 0.15
 
     else:
 
-        warmup = 10
-        cooldown = 10
+        warmup_ratio = 0.15
+        cooldown_ratio = 0.10
 
-    main_swim = (
-        duration_minutes
-        - warmup
-        - cooldown
+
+    warmup_distance = int(
+        estimated_distance
+        * warmup_ratio
     )
 
-    descriptions = {
+    cooldown_distance = int(
+        estimated_distance
+        * cooldown_ratio
+    )
 
-        "easy":
-            "Relaxed continuous swimming with comfortable breathing.",
+    # Round to pool lengths.
 
-        "moderate":
-            "Steady swimming at a sustainable pace with short rests.",
+    warmup_distance = (
+        warmup_distance
+        // pool_length
+        * pool_length
+    )
 
-        "hard":
-            "Higher-intensity intervals with recovery periods."
+    cooldown_distance = (
+        cooldown_distance
+        // pool_length
+        * pool_length
+    )
+
+    main_distance = (
+        estimated_distance
+        - warmup_distance
+        - cooldown_distance
+    )
+
+
+    # =====================================================
+    # MAIN SET DESIGN
+    # =====================================================
+
+    if level == "beginner":
+
+        repeat_distance = (
+            50 if pool_length == 25 else 100
+        )
+
+    elif level == "intermediate":
+
+        repeat_distance = 100
+
+    else:
+
+        repeat_distance = 200
+
+
+    # Speed training uses shorter intervals.
+
+    if goal == "speed":
+
+        repeat_distance = (
+            50 if pool_length == 25 else 100
+        )
+
+
+    repeats = max(
+        1,
+        main_distance // repeat_distance,
+    )
+
+
+    # Adjust actual main distance.
+
+    main_distance = (
+        repeats
+        * repeat_distance
+    )
+
+
+    # =====================================================
+    # REST INTERVAL
+    # =====================================================
+
+    if goal == "recovery":
+
+        rest_seconds = 30
+
+    elif goal == "speed":
+
+        rest_seconds = 40
+
+    elif intensity == "easy":
+
+        rest_seconds = 30
+
+    elif intensity == "moderate":
+
+        rest_seconds = 20
+
+    else:
+
+        rest_seconds = 30
+
+
+    # =====================================================
+    # GOAL DESCRIPTION
+    # =====================================================
+
+    goal_descriptions = {
+
+        "aerobic":
+            "Maintain a steady sustainable pace and focus "
+            "on relaxed breathing.",
+
+        "endurance":
+            "Maintain consistent technique across longer "
+            "repeats and avoid starting too fast.",
+
+        "recovery":
+            "Keep effort comfortable and prioritize smooth "
+            "technique over speed.",
+
+        "speed":
+            "Swim the work intervals strongly while using "
+            "the recovery periods to maintain quality.",
     }
 
-    if intensity not in descriptions:
-        intensity = "moderate"
+
+    # =====================================================
+    # FINAL WORKOUT
+    # =====================================================
+
+    actual_total_distance = (
+        warmup_distance
+        + main_distance
+        + cooldown_distance
+    )
 
     return {
-        "total_duration_minutes":
-            duration_minutes,
+        "level": level,
+        "goal": goal,
+        "stroke": stroke,
+        "pool_length_m": pool_length,
 
-        "intensity":
-            intensity,
+        "duration_minutes": duration_minutes,
+        "intensity": intensity,
 
-        "warmup_minutes":
-            warmup,
+        "estimated_total_distance_m":
+            actual_total_distance,
 
-        "main_swim_minutes":
-            main_swim,
+        "warmup": {
+            "distance_m":
+                warmup_distance,
 
-        "cooldown_minutes":
-            cooldown,
+            "instruction":
+                f"Easy {stroke} focusing on relaxed technique.",
+        },
 
-        "main_swim_description":
-            descriptions[intensity]
+        "main_set": {
+            "repeats":
+                repeats,
+
+            "distance_per_repeat_m":
+                repeat_distance,
+
+            "total_distance_m":
+                main_distance,
+
+            "rest_seconds":
+                rest_seconds,
+
+            "instruction":
+                goal_descriptions[goal],
+        },
+
+        "cooldown": {
+            "distance_m":
+                cooldown_distance,
+
+            "instruction":
+                "Very easy swimming with relaxed breathing.",
+        },
     }
 
 
@@ -217,4 +459,237 @@ def nutrition_analysis_tool(foods):
                 word in food_text
                 for word in sugary_words
             )
+    }
+
+from datetime import datetime, timedelta
+
+
+# =========================================================
+# TOOL 4 — TRAINING LOAD ANALYSIS
+# =========================================================
+
+def training_load_tool(
+    swimming_history: list,
+):
+    """
+    Analyze swimming activity from the most recent 7 days.
+
+    This is a simple planning heuristic for the demo Agent.
+    It is not a medical or professional training-load model.
+    """
+
+    today = datetime.now().date()
+
+    seven_days_ago = (
+        today - timedelta(days=6)
+    )
+
+    recent_sessions = []
+
+    # =====================================================
+    # FILTER LAST 7 DAYS
+    # =====================================================
+
+    for session in swimming_history:
+
+        try:
+
+            session_date = datetime.strptime(
+                session["date"],
+                "%Y-%m-%d",
+            ).date()
+
+        except (
+            KeyError,
+            ValueError,
+            TypeError,
+        ):
+
+            continue
+
+        if (
+            seven_days_ago
+            <= session_date
+            <= today
+        ):
+
+            recent_sessions.append(
+                session
+            )
+
+    # =====================================================
+    # NO RECENT TRAINING
+    # =====================================================
+
+    if not recent_sessions:
+
+        return {
+            "sessions_last_7_days": 0,
+            "total_minutes_last_7_days": 0,
+            "easy_sessions": 0,
+            "moderate_sessions": 0,
+            "hard_sessions": 0,
+            "training_load_score": 0,
+            "training_load_level": "low",
+            "recommended_intensity": "moderate",
+            "reason":
+                "No swimming sessions were recorded "
+                "during the last 7 days.",
+        }
+
+    # =====================================================
+    # CALCULATE TRAINING LOAD
+    # =====================================================
+
+    total_minutes = 0
+
+    easy_sessions = 0
+    moderate_sessions = 0
+    hard_sessions = 0
+
+    training_load_score = 0
+
+    intensity_weights = {
+        "easy": 1,
+        "moderate": 2,
+        "hard": 3,
+    }
+
+    for session in recent_sessions:
+
+        duration = session.get(
+            "duration_minutes",
+            0,
+        )
+
+        intensity = session.get(
+            "intensity",
+            "moderate",
+        ).lower()
+
+        if intensity not in intensity_weights:
+            intensity = "moderate"
+
+        total_minutes += duration
+
+        if intensity == "easy":
+            easy_sessions += 1
+
+        elif intensity == "moderate":
+            moderate_sessions += 1
+
+        elif intensity == "hard":
+            hard_sessions += 1
+
+        # Simple load score:
+        # duration × intensity weight
+
+        training_load_score += (
+            duration
+            * intensity_weights[intensity]
+        )
+
+    # =====================================================
+    # DETERMINE LOAD LEVEL
+    # =====================================================
+
+    if training_load_score < 120:
+
+        load_level = "low"
+
+        recommended_intensity = (
+            "moderate"
+        )
+
+        reason = (
+            "Recent swimming load is relatively low, "
+            "so a moderate session is reasonable."
+        )
+
+    elif training_load_score < 300:
+
+        load_level = "moderate"
+
+        recommended_intensity = (
+            "moderate"
+        )
+
+        reason = (
+            "Recent swimming load is moderate. "
+            "A moderate session is reasonable, "
+            "but avoid unnecessary intensity."
+        )
+
+    elif training_load_score < 500:
+
+        load_level = "high"
+
+        recommended_intensity = (
+            "easy"
+        )
+
+        reason = (
+            "Recent swimming load is relatively high. "
+            "An easier session may provide better recovery."
+        )
+
+    else:
+
+        load_level = "very_high"
+
+        recommended_intensity = (
+            "easy"
+        )
+
+        reason = (
+            "Recent swimming load is very high in this "
+            "simplified model. Consider an easy or "
+            "recovery-focused session."
+        )
+
+    # =====================================================
+    # HARD SESSION SAFEGUARD
+    # =====================================================
+
+    if hard_sessions >= 2:
+
+        recommended_intensity = "easy"
+
+        reason = (
+            "At least two hard sessions were recorded "
+            "during the last 7 days, so an easy session "
+            "is recommended in this simplified model."
+        )
+
+    # =====================================================
+    # RETURN RESULT
+    # =====================================================
+
+    return {
+        "sessions_last_7_days":
+            len(recent_sessions),
+
+        "total_minutes_last_7_days":
+            total_minutes,
+
+        "easy_sessions":
+            easy_sessions,
+
+        "moderate_sessions":
+            moderate_sessions,
+
+        "hard_sessions":
+            hard_sessions,
+
+        "training_load_score":
+            training_load_score,
+
+        "training_load_level":
+            load_level,
+
+        "recommended_intensity":
+            recommended_intensity,
+
+        "reason":
+            reason,
     }
