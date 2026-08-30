@@ -705,3 +705,7 @@ They are **not medical advice, professional coaching advice, or a substitute for
 **Model:** Qwen3:4B via Ollama
 
 **Interface:** Streamlit + CLI
+
+## 🖥️ V9 Dashboard
+
+![Swim Planner V9 Dashboard](assets/v9-dashboard.png)
