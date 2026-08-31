@@ -1,481 +1,569 @@
-# 🏊 Swim Planner Agent
+# 🏊 Swim Planner
 
-A local AI agent for personalized swimming planning, built from scratch with **Python, Qwen3:4B, Ollama, and Streamlit**.
+**A multimodal, stateful AI swimming planner built with OpenAI, LangChain, LangGraph, Streamlit, and Supabase.**
 
-The project explores how an LLM can be combined with deterministic tools, structured state, persistent memory, real-time information, and historical data to build a stateful AI application rather than a simple chatbot.
+Swim Planner turns natural-language requests, meal context, meal photos, and recent training history into structured swimming plans.
 
-> **V1.0 Local Prototype** — Feature frozen  
-> Current model: Qwen3:4B running locally through Ollama
+Rather than asking a single LLM to perform the entire workflow, V2 separates language understanding, nutrition analysis, deterministic planning tools, memory, and response generation into an explicit LangGraph workflow.
 
----
+### 🌐 Live Demo
 
-## 🎯 Project Goal
+**[Try Swim Planner V2](https://swim-planner-agent-ahnq3yqegicktny8qyweht.streamlit.app/)**
 
-The project started with a simple question:
-
-> Can an AI agent recommend when and how I should swim based on what I ate and my recent swimming activity?
-
-The initial prototype was a basic LLM assistant.
-
-It was progressively developed into a stateful agent capable of:
-
-- interpreting natural-language requests
-- tracking meal timing in real time
-- generating structured swimming workouts
-- storing long-term preferences
-- recording completed swimming sessions
-- analyzing recent training history
-- adjusting workout intensity based on recent training load
-- exposing internal agent data for debugging
-- measuring end-to-end agent latency
-
-The architecture was intentionally implemented largely from scratch rather than starting with an agent framework, in order to understand the underlying mechanics of agent systems.
+> Swim Planner is currently an experimental public beta. Nutrition, meal-timing, and training recommendations are estimates and should not be treated as medical advice.
 
 ---
 
-# ✨ Features
+## ✨ What It Does
 
-## 🍽️ Meal-Aware Planning
+Swim Planner can:
 
-The agent extracts meal information from natural language and maintains:
-
-- foods consumed
-- meal size
-- meal completion time
-- real-time minutes since meal
-
-Instead of permanently storing:
-
-```text
-minutes_since_meal = 30
-```
-
-the system stores a real timestamp:
-
-```text
-meal_finished_at = 17:30
-```
-
-Python then recalculates elapsed time using the current clock.
-
-This allows the state to evolve with real-world time.
-
----
-
-## 🏊 Structured Swimming Workouts
-
-The workout tool generates sessions based on:
-
-- swimming level
-  - Beginner
-  - Intermediate
-  - Advanced
-- training goal
-  - Aerobic
-  - Endurance
-  - Recovery
-  - Speed
-- swimming intensity
-  - Easy
-  - Moderate
-  - Hard
-- preferred stroke
-- pool length
-- desired duration
-
-Example output:
-
-```text
-40-minute Moderate Aerobic Swim
-
-Warm-up
-150 m easy freestyle
-
-Main Set
-12 × 50 m freestyle
-20 seconds rest
-
-Cool-down
-100 m easy
-
-Total Distance
-850 m
-```
-
-Workout calculations are performed by deterministic Python logic rather than relying entirely on the LLM.
-
----
-
-## 🔧 Deterministic Tools
-
-The current agent uses four main Python tools:
-
-### 1. Meal Timing Tool
-
-Determines a suggested waiting period based on:
-
-```text
-Meal Size
-+
-Time Since Meal
-+
-Desired Swimming Intensity
-```
-
----
-
-### 2. Nutrition Analysis Tool
-
-Performs a lightweight classification of meal characteristics such as:
-
-- protein sources
-- carbohydrate sources
-- higher-fat foods
-- sugary foods or drinks
-
-This is intentionally a simple classification tool and not a medical nutrition model.
-
----
-
-### 3. Swimming Workout Tool
-
-Creates structured distance-based swimming sessions using:
-
-```text
-Level
-+
-Goal
-+
-Intensity
-+
-Stroke
-+
-Pool Length
-+
-Duration
-```
-
----
-
-### 4. Training Load Tool
-
-Analyzes swimming activity from the previous seven days.
-
-It considers:
-
-- number of sessions
-- total swimming minutes
-- easy / moderate / hard sessions
-- simplified training-load score
-
-The result can influence the recommended intensity of the next workout.
-
----
-
-# 📊 History-Driven Decision Making
-
-The agent does not simply store swimming history.
-
-Historical data actively influences future decisions.
+- Understand natural-language swimming requests
+- Generate structured swimming workouts
+- Analyze meals from text
+- Analyze meal photos using multimodal AI
+- Estimate calories and macronutrients
+- Estimate pre-swim meal timing
+- Record completed swimming sessions
+- Maintain persistent training history
+- Analyze recent training load
+- Adjust requested workout intensity
+- Maintain multi-turn conversation state
+- Separate conversation memory from long-term user memory
 
 Example:
 
+> I ate this meal 45 minutes ago. I'm a beginner and want a 40-minute moderate aerobic freestyle swim in a 25-meter pool.
+
+With an uploaded meal image, the system can produce:
+
 ```text
-Recent History
-
-45 min HARD
-40 min HARD
-
-        ↓
-
-Training Load Tool
-
-        ↓
-
-Recommended Intensity
-EASY
-
-        ↓
-
-User requests HARD
-
-        ↓
-
+Meal Image
+    ↓
+Visual Food Recognition
+    ↓
+Portion Estimation
+    ↓
+Calories / Protein / Carbs / Fat / Fiber
+    ↓
+Meal Timing
+    ↓
+Recent Training History
+    ↓
+Training Load
+    ↓
 Intensity Decision
-
-Requested: HARD
-Recommended: EASY
-Final: EASY
-
-        ↓
-
-Workout Tool generates
-an EASY session
-```
-
-This creates the following decision pipeline:
-
-```text
-Past Data
-   ↓
-Persistent Memory
-   ↓
-Analysis Tool
-   ↓
-Decision
-   ↓
-Workout Tool
-   ↓
-LLM Explanation
+    ↓
+Structured Swimming Workout
 ```
 
 ---
 
-# 🧠 Memory Architecture
+# 🧠 Architecture
 
-The project distinguishes between different types of information.
-
-## Temporary Structured State
-
-Used for current-session information such as:
-
-```text
-Current meal
-Meal timestamp
-Current workout duration
-Current intensity
-Swimming level
-Training goal
-Stroke
-Pool length
-```
-
----
-
-## Persistent Long-Term Memory
-
-Stored locally in `memory.json`.
-
-Examples:
-
-```text
-Preferred swimming duration
-Preferred swimming intensity
-Completed swimming sessions
-```
-
-The agent distinguishes between temporary statements and information worth remembering.
-
-For example:
-
-```text
-"I want a 40-minute swim today."
-```
-
-is treated as temporary.
-
-While:
-
-```text
-"I usually prefer 40-minute moderate swims."
-```
-
-can be stored as a long-term preference.
-
----
-
-# 🏗️ Architecture
+V2 is built as a modular agent workflow rather than a single large prompt.
 
 ```text
                          USER
                            │
                            ▼
-                    Streamlit Web UI
+                       Streamlit
                            │
                            ▼
-                     Agent Core
-                           │
-             ┌─────────────┴─────────────┐
-             │                           │
-             ▼                           ▼
-       Memory Analysis             State Extraction
-             │                           │
-             ▼                           ▼
-     Persistent Memory            Structured State
-             │                           │
-             └─────────────┬─────────────┘
+                    LangGraph State
                            │
                            ▼
-                     Python Tools
+                      Parse Input
                            │
-            ┌──────────────┼──────────────┐
-            │              │              │
-            ▼              ▼              ▼
-       Meal/Nutrition   Training Load   Workout
-            │              │              │
-            └──────────────┼──────────────┘
-                           │
-                           ▼
-                  Intensity Decision
-                           │
-                           ▼
-                      Qwen3:4B
-                           │
-                           ▼
-                    Final Response
+                ┌──────────┴──────────┐
+                │                     │
+                ▼                     ▼
+       Completed Swim?          Planning Request
+                │                     │
+                ▼                     ▼
+          Save History            Meal Input?
+                │              ┌──────┴──────┐
+                │              │             │
+                │              ▼             ▼
+                │        Meal Image       Text Meal
+                │              │             │
+                │              ▼             ▼
+                │      Vision Nutrition   Nutrition
+                │              └──────┬──────┘
+                │                     ▼
+                │                Meal Timing
+                │                     │
+                │                     ▼
+                │               Load History
+                │                     │
+                │                     ▼
+                │               Training Load
+                │                     │
+                │                     ▼
+                │            Intensity Decision
+                │                     │
+                │                     ▼
+                │                  Workout
+                │                     │
+                └─────────────┬───────┘
+                              ▼
+                       Final Response
+                              │
+                              ▼
+                             USER
 ```
+
+The architecture intentionally separates:
+
+- **LLM reasoning and interpretation**
+- **Deterministic Python tools**
+- **Workflow orchestration**
+- **Conversation state**
+- **Persistent user memory**
 
 ---
 
-# 🧩 Project Structure
+# 🔀 Why LangGraph?
+
+Earlier versions of the project handled most logic inside a single agent execution flow.
+
+V2 uses LangGraph to represent the workflow explicitly.
+
+Each node has one primary responsibility:
+
+```text
+Parse Input
+Nutrition Analysis
+Vision Nutrition
+Meal Timing
+Load History
+Training Load
+Intensity Decision
+Workout Generation
+Memory Write
+Final Response
+```
+
+Conditional edges determine which nodes actually execute.
+
+For example:
+
+```text
+Meal image exists
+        ↓
+Vision Nutrition
+
+Text meal exists
+        ↓
+Text Nutrition
+
+No meal
+        ↓
+Skip Nutrition
+
+Completed swim
+        ↓
+Write Long-Term Memory
+```
+
+This makes the workflow easier to inspect, test, extend, and debug than a single monolithic agent function.
+
+---
+
+# 📷 Multimodal Nutrition Analysis
+
+Swim Planner V2 supports both text and image-based meal input.
+
+## Text
+
+Example:
+
+> I ate chicken rice, a fried egg, and milk tea 45 minutes ago.
+
+## Vision
+
+Users can upload a meal photograph directly through the web interface.
+
+The multimodal nutrition component estimates:
+
+- Visible foods
+- Approximate portions
+- Calories
+- Protein
+- Carbohydrates
+- Fat
+- Fiber
+- Digestion load
+- Confidence
+- Sources of uncertainty
+
+Example structured output:
+
+```json
+{
+  "food_items": [
+    {
+      "name": "steamed rice",
+      "estimated_portion": "about 200–250 g",
+      "confidence": "medium"
+    },
+    {
+      "name": "roasted chicken",
+      "estimated_portion": "about 120–160 g",
+      "confidence": "medium"
+    }
+  ],
+  "calories_kcal": {
+    "low": 650,
+    "high": 850
+  },
+  "protein_g": {
+    "low": 30,
+    "high": 45
+  }
+}
+```
+
+Nutrition values are intentionally represented as **ranges** rather than false-precision point estimates.
+
+The system also explicitly represents uncertainty when portion size, cooking oil, sauces, or preparation methods cannot be determined visually.
+
+---
+
+# 🏊 Structured Workout Planning
+
+Workout generation is separated from the LLM response layer.
+
+The planner produces structured workout objects containing information such as:
+
+- Duration
+- Intensity
+- Swimming level
+- Goal
+- Stroke
+- Pool length
+- Estimated total distance
+- Warm-up
+- Main set
+- Cool-down
+
+This allows the application to use the same workout data for:
+
+- Natural-language responses
+- Streamlit dashboards
+- Training history
+- Future analytics
+- Testing
+
+The LLM explains the workout but does not need to recalculate the deterministic tool output.
+
+---
+
+# 🧠 Memory Architecture
+
+V2 deliberately separates two different kinds of memory.
+
+## 1. Conversation Memory
+
+Implemented using:
+
+**LangGraph `InMemorySaver`**
+
+Used for temporary thread-level context such as:
+
+```text
+User:
+I want a 40-minute moderate freestyle swim.
+
+User:
+Actually, make it hard.
+```
+
+The second message can inherit information from the first message within the same conversation.
+
+Starting a **New Conversation** creates a new LangGraph thread.
+
+---
+
+## 2. Long-Term Training Memory
+
+Implemented using:
+
+**Supabase PostgreSQL**
+
+Completed swimming sessions are stored independently of conversation threads.
+
+```text
+Anonymous User
+      │
+      ├── Conversation A
+      ├── Conversation B
+      └── Conversation C
+              │
+              ▼
+        Same User Memory
+              │
+              ▼
+       Supabase PostgreSQL
+              │
+              ▼
+       Swimming History
+```
+
+A user can say:
+
+> I just finished a 40-minute hard swim.
+
+The agent detects that the message describes a completed session and writes it to long-term memory.
+
+Future conversations can load that history and use it during workout planning.
+
+---
+
+# 📈 Training Load & Intensity Decisions
+
+Recent swimming history is passed through a deterministic training-load tool.
+
+The current prototype considers factors including:
+
+- Sessions during the last 7 days
+- Total swimming minutes
+- Easy sessions
+- Moderate sessions
+- Hard sessions
+- Simplified training-load score
+
+The resulting recommendation is compared against the user's requested intensity.
+
+Example:
+
+```text
+User request
+    ↓
+HARD
+
+Recent history
+    ↓
+2 hard sessions
+
+Training Load
+    ↓
+EASY recommended
+
+Intensity Decision
+    ↓
+Requested: HARD
+Recommended: EASY
+Final: EASY
+
+Workout
+    ↓
+EASY
+```
+
+The system preserves the distinction between:
+
+```text
+User Intent
+    ↓
+Agent Decision
+    ↓
+Executed Workout
+```
+
+rather than overwriting the user's original request.
+
+---
+
+# ⚡ V1 → V2
+
+The project was intentionally developed in multiple generations.
+
+## V1
+
+V1 explored a locally hosted agent architecture using a local Qwen model.
+
+It included:
+
+- Local LLM inference
+- Memory
+- State extraction
+- Python tools
+- Workout generation
+- Performance instrumentation
+- Streamlit interface
+
+A representative V1 benchmark:
+
+```text
+Memory analysis:     24.475 s
+State extraction:    21.551 s
+Python tools:         0.003 s
+Final response:      76.336 s
+--------------------------------
+Total:              122.366 s
+```
+
+A later web run was approximately:
+
+```text
+Memory:          13.49 s
+State:           17.36 s
+Python tools:     0.005 s
+Response:        89.14 s
+--------------------------------
+Total:          120.00 s
+```
+
+The primary bottleneck was local LLM inference rather than deterministic Python tooling.
+
+---
+
+## V2
+
+V2 moved to:
+
+- OpenAI models
+- LangChain structured output
+- LangGraph orchestration
+- Explicit state
+- Conditional routing
+- Multimodal vision
+- Supabase long-term memory
+
+Representative V2 end-to-end benchmark:
+
+```text
+Parse Input:          5.168 s
+Nutrition Analysis:  11.695 s
+Meal Timing:          <0.001 s
+Workout:              <0.001 s
+Final Response:       15.172 s
+--------------------------------
+Total LangGraph:      32.040 s
+```
+
+In this run, measured node execution accounted for approximately:
+
+```text
+32.035 s
+```
+
+of the:
+
+```text
+32.040 s
+```
+
+total graph execution time.
+
+This indicated negligible orchestration overhead in that benchmark, while LLM inference remained the dominant source of latency.
+
+### Approximate End-to-End Improvement
+
+| Version | Architecture | Representative latency |
+|---|---|---:|
+| V1 | Local Qwen-based agent | ~120–122 s |
+| V2 | OpenAI + LangGraph | ~32 s |
+
+V2 reduced representative end-to-end latency by approximately **73–74%** while adding structured nutrition analysis, multimodal input, explicit workflow orchestration, and cloud-backed memory.
+
+> Benchmarks are development measurements rather than controlled production performance guarantees. API and model latency can vary between requests.
+
+---
+
+# 🛠 Tech Stack
+
+### AI
+
+- OpenAI
+- LangChain
+- LangGraph
+- Structured Pydantic outputs
+- Multimodal vision
+
+### Application
+
+- Python
+- Streamlit
+- Pydantic
+
+### Memory & Data
+
+- Supabase
+- PostgreSQL
+- LangGraph Checkpointer
+
+### Deployment
+
+- GitHub
+- Streamlit Community Cloud
+
+---
+
+# 🗂 Project Structure
 
 ```text
 swim-planner-agent/
 │
-├── app.py
-│   └── Streamlit web interface and dashboard
+├── v1/
+│   ├── agent_core.py
+│   ├── app.py
+│   ├── cli.py
+│   ├── memory.py
+│   ├── prompts.py
+│   ├── state.py
+│   └── tools.py
 │
-├── cli.py
-│   └── Terminal interface and performance display
+├── v2/
+│   ├── agent/
+│   │   ├── graph.py
+│   │   ├── nodes.py
+│   │   ├── prompts.py
+│   │   └── state.py
+│   │
+│   ├── memory/
+│   │   └── store.py
+│   │
+│   ├── models/
+│   │   ├── nutrition.py
+│   │   ├── provider.py
+│   │   ├── training.py
+│   │   ├── user_input.py
+│   │   └── workout.py
+│   │
+│   └── tools/
+│       ├── meal_timing.py
+│       ├── nutrition.py
+│       ├── training_load.py
+│       ├── user_input.py
+│       ├── vision_nutrition.py
+│       └── workout.py
 │
-├── agent_core.py
-│   └── Main agent workflow and orchestration
+├── tests/
 │
-├── tools.py
-│   └── Deterministic Python tools
-│
-├── state.py
-│   └── Structured and real-time temporary state
-│
-├── memory.py
-│   └── Persistent preferences and swimming history
-│
-├── prompts.py
-│   └── State, memory, and response prompts
-│
+├── v2_app.py
 ├── requirements.txt
-│
 └── README.md
 ```
 
-`memory.json` and the local Python virtual environment are excluded from Git tracking.
-
 ---
 
-# ⚡ Performance Benchmark
-
-One goal of V1 was to understand where latency occurs in a local agent architecture.
-
-Two representative end-to-end tests were recorded using **Qwen3:4B locally through Ollama**.
-
-| Stage | CLI Benchmark | V9 Web Benchmark |
-|---|---:|---:|
-| Memory Analysis | 24.475 s | 13.49 s |
-| State Extraction | 21.551 s | 17.36 s |
-| Python Tools | 0.003 s | 0.005 s |
-| Final Response | 76.336 s | 89.14 s |
-| **Total** | **122.366 s** | **120.00 s** |
-
-### Key Finding
-
-Deterministic Python tools contributed **negligible latency**.
-
-The dominant performance bottleneck was local LLM inference, particularly final-response generation.
-
-Typical end-to-end latency for the current local architecture is approximately:
-
-```text
-~120 seconds
-```
-
-This benchmark will serve as the baseline for comparison with the future cloud-based architecture.
-
----
-
-# 💻 Web Interface
-
-The Streamlit interface provides:
-
-- conversational interaction
-- real-time meal status
-- current workout state
-- weekly swimming statistics
-- training-load analysis
-- persistent swimming history
-- developer/debug information
-- agent latency measurements
-
-The V9 dashboard also exposes the latency of each major stage:
-
-```text
-Memory Analysis
-State Extraction
-Python Tools
-Final Response
-Total
-```
-
----
-
-# 🛠️ Technology Stack
-
-### Language
-
-- Python 3.12
-
-### Local LLM
-
-- Qwen3:4B
-
-### Model Runtime
-
-- Ollama
-
-### Web Interface
-
-- Streamlit
-
-### State & Memory
-
-- Python structured state
-- JSON persistent storage
-
-### Version Control
-
-- Git
-- GitHub
-
----
-
-# 🚀 Running Locally
+# 🚀 Run Locally
 
 ## 1. Clone the repository
 
 ```bash
 git clone https://github.com/suiwenke69-cyber/swim-planner-agent.git
-```
-
-Enter the project:
-
-```bash
 cd swim-planner-agent
 ```
-
----
 
 ## 2. Create a virtual environment
 
 ```bash
-python3 -m venv .venv
-```
-
-Activate it on macOS/Linux:
-
-```bash
+python -m venv .venv
 source .venv/bin/activate
 ```
-
----
 
 ## 3. Install dependencies
 
@@ -483,229 +571,170 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
----
+## 4. Configure environment variables
 
-## 4. Install and run Ollama
+Create:
 
-Install Ollama separately and pull the local model:
+```text
+.env
+```
+
+Add:
+
+```text
+OPENAI_API_KEY=your_openai_api_key
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_KEY=your_supabase_server_key
+```
+
+Do not commit `.env`.
+
+## 5. Start the application
 
 ```bash
-ollama pull qwen3:4b
+streamlit run v2_app.py
 ```
 
 ---
 
-## 5. Run the web application
+# 🧪 Testing
+
+The repository contains tests covering major components of the V2 architecture, including:
+
+- Structured input parsing
+- Nutrition analysis
+- Meal timing
+- Training history
+- Training-load decisions
+- LangGraph checkpointing
+- Persistent memory
+- Duplicate protection
+- Cross-user memory isolation
+- Supabase connectivity
+- Supabase CRUD operations
+- Vision nutrition
+- Multimodal graph execution
+- End-to-end agent execution
+
+Example:
 
 ```bash
-streamlit run app.py
+python -m tests.test_v2_end_to_end
 ```
 
-Then open:
+---
+
+# 🔐 Privacy & Public Beta Design
+
+The current public beta does not provide user accounts.
+
+Visitors receive an anonymous application identity used to isolate training records.
+
+Long-term swimming history is stored in Supabase and separated by anonymous user ID.
+
+Conversation state and long-term training history are intentionally treated as different systems:
 
 ```text
-http://localhost:8501
+Conversation State
+→ LangGraph Checkpointer
+
+Long-Term Training History
+→ Supabase PostgreSQL
 ```
 
----
-
-## 6. Optional: Run the CLI version
-
-```bash
-python cli.py
-```
+This architecture is designed so that a future authentication layer can replace anonymous identity without requiring the planning workflow to be redesigned.
 
 ---
 
-# 🧪 Development Evolution
+# ⚠️ Current Limitations
 
-The project was developed incrementally to explore different agent concepts.
+Swim Planner V2 is an experimental software project.
 
-```text
-V1
-LLM + Prompt
+### Nutrition
 
-↓
+Nutrition estimates from text or images may be inaccurate, particularly when:
 
-V2
-Deterministic Tool
+- Portion sizes are unclear
+- Cooking oil is not visible
+- Sauces or ingredients are hidden
+- Food preparation cannot be determined from the image
 
-↓
+### Meal Timing
 
-V3
-Tool Calling
+The current meal-timing system uses **prototype planning heuristics**.
 
-↓
+It has not yet been replaced by a fully evidence-based sports-nutrition model.
 
-V4
-Multi-Tool Agent
+### Training Load
 
-↓
+The current training-load score is also a simplified prototype heuristic rather than a validated physiological training-load model.
 
-V5
-Conversation Memory
+### Anonymous Identity
 
-↓
+The public beta does not currently provide account-based authentication.
 
-V5.1
-Structured State
+### AI Output
 
-↓
-
-V6
-Persistent Memory
-
-↓
-
-V6.5
-Real-Time State
-
-↓
-
-V7
-Professional Swimming Workout Tool
-
-↓
-
-V8
-History-Driven Planning
-
-↓
-
-V9
-Dashboard + Latency Tracking
-
-↓
-
-V1.0 Local Prototype
-Feature Freeze
-```
-
-This incremental process exposed several practical agent-development problems, including:
-
-- incorrect tool routing
-- unreliable conversational state
-- distinction between memory and state
-- structured-output failures
-- persistence design
-- real-world time synchronization
-- history-driven decision making
-- local inference latency
+LLM and vision outputs can be incorrect and should not be treated as medical, nutritional, or professional coaching advice.
 
 ---
 
-# 💡 Key Engineering Lessons
+# 🗺 Roadmap
 
-### LLMs should not do everything
+Planned areas of improvement include:
 
-Natural-language understanding is useful for ambiguous inputs, but deterministic calculations are better handled by code.
-
-```text
-LLM → Understand ambiguity
-Python → Handle certainty
-Tools → Perform actions/calculations
-State → Represent the present
-Memory → Preserve useful past information
-```
-
----
-
-### Memory is not the same as state
-
-Conversation history alone was not reliable enough for maintaining changing numerical information.
-
-Structured state was introduced so that deterministic values could be maintained and updated by Python.
+- Evidence-based pre-exercise meal timing
+- Evidence-based training-load modeling
+- User authentication
+- Stable account-level profiles
+- Improved anonymous identity persistence
+- More robust duplicate-event detection
+- Better portion estimation
+- Nutrition database integration
+- Cost and rate-limit protection
+- Improved mobile UI
+- Expanded workout personalization
+- Additional swimming performance metrics
+- Further latency optimization
 
 ---
 
-### Stored history should influence decisions
+# 💡 Engineering Takeaways
 
-Persistent memory becomes more useful when it changes future behavior rather than simply storing information.
+This project was designed as an exploration of how an AI application evolves from a simple LLM prototype into a structured agent system.
 
-V8 therefore introduced:
+Several architectural principles emerged during development:
 
-```text
-History → Training Load → Decision → Workout
-```
+### LLMs are useful for interpretation
 
----
+Natural-language understanding, food recognition, uncertain nutrition estimation, and user-facing explanation benefit from model reasoning.
 
-### Model inference dominates local latency
+### Deterministic logic belongs in tools
 
-Performance measurements showed that Python tool execution was effectively negligible compared with local LLM inference.
+Calculations and explicit planning rules are easier to test and control when implemented as Python functions.
 
-This motivates the next architectural iteration.
+### State is not the same as memory
 
----
+Conversation state and long-term user history have different lifecycles and should be modeled separately.
 
-# 🔮 V2 Roadmap
+### Uncertainty should be represented explicitly
 
-V1.0 intentionally uses a custom agent architecture built largely from scratch.
+When the system lacks sufficient information, returning no recommendation or a confidence range is preferable to inventing false precision.
 
-The next version is planned as a framework-based cloud architecture.
+### Interfaces matter
 
-## V2 — Cloud Agent
-
-Planned upgrades:
-
-- OpenAI API
-- model-provider abstraction
-- LangChain integration
-- LangChain tools
-- LangGraph state management
-- graph-based workflow orchestration
-- conditional routing
-- improved structured outputs
-- cloud deployment
-- V1 vs V2 latency benchmarking
-
-Planned architecture:
-
-```text
-                 Streamlit
-                     │
-                     ▼
-                  LangGraph
-                     │
-            ┌────────┼────────┐
-            ▼        ▼        ▼
-          State     Tools    Memory
-            │        │        │
-            └────────┼────────┘
-                     │
-                     ▼
-                 OpenAI API
-                     │
-                     ▼
-               Final Response
-```
-
-The same benchmark workload will be used to compare the local and cloud architectures.
+Because text nutrition and vision nutrition return the same structured `MealAnalysis` object, the rest of the planning workflow does not need to care where the information came from.
 
 ---
 
-# ⚠️ Disclaimer
+# 🌐 Live Demo
 
-This project is an educational prototype designed to explore AI-agent architecture and swimming-planning workflows.
-
-The meal-timing, nutrition, training-load, and workout rules are simplified planning heuristics.
-
-They are **not medical advice, professional coaching advice, or a substitute for qualified medical or sports professionals**.
+### **[Launch Swim Planner V2 →](https://swim-planner-agent-ahnq3yqegicktny8qyweht.streamlit.app/)**
 
 ---
 
-# 📌 Version
+## Disclaimer
 
-**Current release:** `v1.0-local`
+Swim Planner is an experimental AI software project.
 
-**Status:** Feature frozen
-
-**Architecture:** Custom local agent
-
-**Model:** Qwen3:4B via Ollama
-
-**Interface:** Streamlit + CLI
-
-## 🖥️ V9 Dashboard
-
-![Swim Planner V9 Dashboard](assets/v9-dashboard.png)
+Nutrition estimates, meal-timing suggestions, training-load calculations, and workout recommendations are provided for demonstration and planning purposes only and are **not medical advice, nutritional advice, or a substitute for professional coaching**.
