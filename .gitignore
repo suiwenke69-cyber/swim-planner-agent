@@ -72,3 +72,7 @@ tests/sample_meal.webp
 
 *.tmp
 *.temp
+
+# Local agent / runtime data
+.agents/
+memory.json
