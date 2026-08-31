@@ -1,0 +1,8 @@
+streamlit
+openai
+langchain
+langchain-openai
+langgraph
+pydantic
+python-dotenv
+supabase
